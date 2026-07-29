@@ -1,11 +1,10 @@
 import os
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, render_template_string, request, jsonify, make_response
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 
 messages_list = []
-# Sesli odadaki kullanıcıların geçici sinyal verileri
 voice_peers = {} 
 
 HTML_TEMPLATE = """
@@ -40,7 +39,6 @@ HTML_TEMPLATE = """
         <button id="sendButton">Gönder</button>
     </div>
 
-    <!-- Karşı tarafın sesini oynatmak için gizli ses elementi -->
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
@@ -51,12 +49,10 @@ HTML_TEMPLATE = """
         let peerConnection;
         let isVoiceConnected = false;
 
-        // Ücretsiz WebRTC bağlantı sunucusu ayarları (STUN)
         const rtcConfig = {
             iceServers: [{ urls: 'stun:://google.com' }]
         };
 
-        // --- YAZILI CHAT SİSTEMİ ---
         function sendMessage() {
             var input = document.getElementById('myMessage');
             var msgText = input.value.trim();
@@ -92,27 +88,21 @@ HTML_TEMPLATE = """
             });
         }, 1000);
 
-        // --- SESLİ ARAMA SİSTEMİ (WebRTC) ---
         document.getElementById('voiceButton').onclick = async function() {
             const btn = document.getElementById('voiceButton');
             const status = document.getElementById('voiceStatus');
 
             if (!isVoiceConnected) {
                 try {
-                    // Tarayıcıdan mikrofon izni istiyoruz
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                    
                     peerConnection = new RTCPeerConnection(rtcConfig);
                     
-                    // Kendi sesimizi bağlantıya ekliyoruz
                     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-                    // Karşı tarafın sesi geldiğinde çalışacak kod
                     peerConnection.ontrack = function(event) {
                         document.getElementById('remoteAudio').srcObject = event.streams[0];
                     };
 
-                    // WebRTC bağlantı sinyallerini sunucu üzerinden paylaşıyoruz
                     peerConnection.onicecandidate = function(event) {
                         if (event.candidate) {
                             fetch('/signal', {
@@ -123,7 +113,6 @@ HTML_TEMPLATE = """
                         }
                     };
 
-                    // Arama teklifi (Offer) oluşturma
                     const offer = await peerConnection.createOffer();
                     await peerConnection.setLocalDescription(offer);
 
@@ -139,15 +128,12 @@ HTML_TEMPLATE = """
                     status.style.color = "#43b581";
                     isVoiceConnected = true;
 
-                    // Karşı tarafın ses sinyallerini dinlemeye başla
                     startVoiceSignalingLoop();
 
                 } catch (err) {
-                    alert("Mikrofon izni verilmedi veya bir hata oluştu kanka!");
-                    console.error(err);
+                    alert("Mikrofon izni verilmedi veya bir hata oluştu!");
                 }
             } else {
-                // Odadan ayrılma işlemleri
                 if(localStream) localStream.getTracks().forEach(track => track.stop());
                 if(peerConnection) peerConnection.close();
                 
@@ -159,7 +145,6 @@ HTML_TEMPLATE = """
             }
         };
 
-        // Karşı tarafın ses tekliflerini her saniye kontrol eden döngü
         function startVoiceSignalingLoop() {
             let voiceInterval = setInterval(async function() {
                 if (!isVoiceConnected) { clearInterval(voiceInterval); return; }
