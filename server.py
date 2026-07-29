@@ -42,6 +42,11 @@ HTML_TEMPLATE = """
     <audio id="remoteAudio" autoplay></audio>
 
     <script>
+        // HTTPS yönlendirmesini zorunlu kılıyoruz (Sesin çalışması için şart)
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            location.replace(`https:${location.href.substring(location.protocol.length)}`);
+        }
+
         var nickname = prompt("Kullanıcı adını gir kanka:");
         if(!nickname) nickname = "Misafir";
 
@@ -50,7 +55,10 @@ HTML_TEMPLATE = """
         let isVoiceConnected = false;
 
         const rtcConfig = {
-            iceServers: [{ urls: 'stun:://google.com' }]
+            iceServers: [
+                { urls: 'stun:://google.com' },
+                { urls: 'stun:://google.com' }
+            ]
         };
 
         function sendMessage() {
@@ -94,13 +102,16 @@ HTML_TEMPLATE = """
 
             if (!isVoiceConnected) {
                 try {
+                    // Mikrofon yakalama kodunu güncelledik
                     localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                     peerConnection = new RTCPeerConnection(rtcConfig);
                     
                     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
                     peerConnection.ontrack = function(event) {
-                        document.getElementById('remoteAudio').srcObject = event.streams[0];
+                        if (event.streams && event.streams[0]) {
+                            document.getElementById('remoteAudio').srcObject = event.streams[0];
+                        }
                     };
 
                     peerConnection.onicecandidate = function(event) {
@@ -131,7 +142,8 @@ HTML_TEMPLATE = """
                     startVoiceSignalingLoop();
 
                 } catch (err) {
-                    alert("Mikrofon izni verilmedi veya bir hata oluştu!");
+                    alert("Hata: Tarayıcı güvenli modda değil veya mikrofon donanımı meşgul!");
+                    console.error(err);
                 }
             } else {
                 if(localStream) localStream.getTracks().forEach(track => track.stop());
