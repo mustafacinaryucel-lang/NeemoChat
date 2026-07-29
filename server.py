@@ -59,9 +59,13 @@ HTML_TEMPLATE = """
 </html>
 """
 
+from flask import make_response
+
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE)
+    response = make_response(HTML_TEMPLATE)
+    response.headers['Content-Type'] = 'text/html'
+    return response
 
 @socketio.on('message')
 def handleMessage(msg):
